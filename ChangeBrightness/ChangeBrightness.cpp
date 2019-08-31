@@ -1,3 +1,7 @@
+/*
+* Copyright (c) 2019 lf <software@lfcode.ca>
+* SPDX-License-Identifier: MIT
+*/
 // this is probably sinful and bad, but I can't figure out dynamically linking it
 #pragma comment(lib, "dxva2.lib")
 
