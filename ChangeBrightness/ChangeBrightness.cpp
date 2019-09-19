@@ -12,35 +12,72 @@
 #include <algorithm>
 #include <execution>
 
+#include <cxxopts.hpp>
+
+#define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <physicalmonitorenumerationapi.h>
 #include <highlevelmonitorconfigurationapi.h>
-
 
 template<typename T>
 T clamp(T min, T max, T val) {
 	return val < min ? min : val > max ? max : val;
 }
 
+struct ParseResult {
+	DWORD brightnessChange;
+	bool relativeMode;
+};
+
+auto parseArgs(int argc, char** argv) {
+	using res = std::optional<ParseResult>;
+
+	bool relativeMode;
+	try {
+		cxxopts::Options optparser{ argv[0], "Change display brightness, by default in increments" };
+		optparser.positional_help("brightness").show_positional_help();
+
+		int32_t change = 0;
+		optparser.add_options()
+			("a,absolute", "Set brightness to a given value")
+			("brightness", "Amount to set brightness", cxxopts::value<std::int32_t>(change))
+			("h,help", "Print help");
+
+		optparser.parse_positional({ "brightness" });
+
+		auto args = optparser.parse(argc, argv);
+		if (args.count("help") || args.count("brightness") != 1) {
+			std::cerr << optparser.help();
+			return res{};
+		}
+
+		relativeMode = !(args.count("absolute"));
+		auto brightnessChange = args["brightness"].as<std::int32_t>();
+		return res{ParseResult{ static_cast<DWORD>(brightnessChange), relativeMode }};
+	}
+	catch (cxxopts::OptionException exc) {
+		std::cerr << exc.what() << "\n";
+		return res{};
+	}
+}
+
 int main(int argc, char **argv)
 {
-	if (argc != 2) {
-		std::cerr << "Usage: " << argv[0] << " brightness_change\n";
-		return 1;
+	auto parsedOpt = parseArgs(argc, argv);
+	if (!parsedOpt.has_value()) {
+		exit(1);
 	}
-	std::istringstream iss { argv[1] };
+	auto parsed = parsedOpt.value();
 
-	int change;
-	iss >> change;
-	if (iss.fail()) {
-		std::cerr << "Failed to convert input" << argv[1] << " to integer\n";
-		return 1;
-	}
+	std::cout << "Relative mode: " << parsed.relativeMode << "\n";
+	std::cout << "Brightness change: " << parsed.brightnessChange << "\n";
 
 	EnumDisplayMonitors(
 		NULL, NULL,
-		[](HMONITOR mon, auto _, auto _2, auto theChange) -> _BOOL {
+		[](HMONITOR mon, auto _, auto _2, auto cmdlineArgsRef) -> _BOOL {
+			auto cmdlineArgs = *reinterpret_cast<ParseResult *>(cmdlineArgsRef);
+
 			DWORD numMonitors;
 			if (!GetNumberOfPhysicalMonitorsFromHMONITOR(mon, &numMonitors)) {
 				std::cerr << "Ignoring monitor: cannot get number of physical monitors: " << GetLastError() << "\n";
@@ -53,12 +90,18 @@ int main(int argc, char **argv)
 				return TRUE;
 			}
 			std::for_each(std::execution::par_unseq, monitors.begin(), monitors.end(), [=](auto&& pm) {
-					DWORD min, curr, max;
+					DWORD min, curr, max, requested;
 					if (!GetMonitorBrightness(pm.hPhysicalMonitor, &min, &curr, &max)) {
 						std::cerr << "Ignoring monitor: cannot get brightness: " << GetLastError() << "\n";
 						return;
 					}
-					DWORD newVal = clamp(min, max, curr + theChange);
+					if (cmdlineArgs.relativeMode) {
+						requested = curr + cmdlineArgs.brightnessChange;
+					}
+					else {
+						requested = cmdlineArgs.brightnessChange;
+					}
+					DWORD newVal = clamp(min, max, requested);
 					std::wcerr << L"Changing monitor " << pm.szPhysicalMonitorDescription << L" from " << curr << L" to " << newVal << L"\n";
 					SetMonitorBrightness(pm.hPhysicalMonitor, newVal);
 				}
@@ -66,6 +109,6 @@ int main(int argc, char **argv)
 			DestroyPhysicalMonitors(numMonitors, monitors.data());
 			return TRUE;
 		},
-		change
+		(reinterpret_cast<LPARAM> (&parsed))
 	);
 }
