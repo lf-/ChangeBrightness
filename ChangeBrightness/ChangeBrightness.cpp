@@ -5,20 +5,7 @@
 // this is probably sinful and bad, but I can't figure out dynamically linking it
 #pragma comment(lib, "dxva2.lib")
 
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <execution>
-
-#include <cxxopts.hpp>
-
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <physicalmonitorenumerationapi.h>
-#include <highlevelmonitorconfigurationapi.h>
+#include "system_includes.h"
 
 template<typename T>
 T clamp(T min, T max, T val) {
@@ -26,7 +13,7 @@ T clamp(T min, T max, T val) {
 }
 
 struct ParseResult {
-	DWORD brightnessChange;
+	int32_t brightnessChange;
 	bool relativeMode;
 };
 
@@ -54,7 +41,7 @@ auto parseArgs(int argc, char** argv) {
 
 		relativeMode = !(args.count("absolute"));
 		auto brightnessChange = args["brightness"].as<std::int32_t>();
-		return res{ParseResult{ static_cast<DWORD>(brightnessChange), relativeMode }};
+		return res{ParseResult{ brightnessChange, relativeMode }};
 	}
 	catch (cxxopts::OptionException exc) {
 		std::cerr << exc.what() << "\n";
@@ -75,7 +62,7 @@ int main(int argc, char **argv)
 
 	EnumDisplayMonitors(
 		NULL, NULL,
-		[](HMONITOR mon, auto _, auto _2, auto cmdlineArgsRef) -> _BOOL {
+		[](HMONITOR mon, auto, auto, auto cmdlineArgsRef) -> _BOOL {
 			auto cmdlineArgs = *reinterpret_cast<ParseResult *>(cmdlineArgsRef);
 
 			DWORD numMonitors;
