@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 					else {
 						requested = cmdlineArgs.brightnessChange;
 					}
-					DWORD newVal = clamp(min, max, requested);
+					DWORD newVal = clamp<int32_t>(min, max, requested);
 					std::wcerr << L"Changing monitor " << pm.szPhysicalMonitorDescription << L" from " << curr << L" to " << newVal << L"\n";
 					SetMonitorBrightness(pm.hPhysicalMonitor, newVal);
 				}
