@@ -18,5 +18,8 @@ The intended use of this program is, for example, as a back end for brightness s
 
 Why use this instead of f.lux? Whatever f.lux is doing reduces the dynamic range of the monitor by actually darkening all the colours that are going to it. This program simply changes the hardware brightness.
 
+### What do I use it for?
+I have a shortcut on my [macropad](https://github.com/lf-/reality/tree/master/mechanical-macropad) to change my screen brightness.
+
 ## License
 MIT
