@@ -1,0 +1,44 @@
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: microsoft/setup-msbuild@v1.0.1
+    - name: Build
+      run: "msbuild -p:Configuration=Release"
+    - name: actions/upload-artifact@v2
+      with:
+        name: win64
+        path: ./x64/Release/ChangeBrightness.exe
+  
+  upload:
+    name: Upload assets to release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v2
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload executable
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./win64/ChangeBrightness.exe
+          asset_name: ChangeBrightness64.exe
+          asset_content_type: application/x-dosexec
