@@ -12,11 +12,11 @@ jobs:
     - uses: microsoft/setup-msbuild@v1.0.1
     - name: Build
       run: "msbuild -p:Configuration=Release"
-    - name: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v2
       with:
         name: win64
         path: ./x64/Release/ChangeBrightness.exe
-  
+
   upload:
     name: Upload assets to release
     runs-on: ubuntu-latest
